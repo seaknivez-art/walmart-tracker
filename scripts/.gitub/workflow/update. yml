@@ -1,33 +1,42 @@
-name: Update Data
+
+name: Update Walmart Data
 
 on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  scrape:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Descargar repositorio
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Instalar Node
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      - name: Instalar dependencias
-        run: npm install
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Ejecutar script
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run scraper
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: node scripts/scraper.js
 
-      - name: Guardar cambios
+      - name: Commit data
         run: |
-          git config --global user.name "bot"
-          git config --global user.email "bot@github.com"
-          git add .
-          git commit -m "update data" || echo "sin cambios"
+          git config user.name "walmart-bot"
+          git config user.email "bot@github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "chore: update prices $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
